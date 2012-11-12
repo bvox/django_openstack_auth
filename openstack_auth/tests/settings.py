@@ -23,3 +23,6 @@ OPENSTACK_KEYSTONE_URL = "http://localhost:5000/v2.0"
 ROOT_URLCONF = 'openstack_auth.tests.urls'
 
 LOGIN_REDIRECT_URL = '/'
+
+KEYSTONE_DATETIME_FMT = '%Y-%m-%dT%H:%M:%S.%f'
+KEYSTONE_TIMEZONE = False

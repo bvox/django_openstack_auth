@@ -42,7 +42,7 @@ setup(
     ],
     zip_safe=False,
     install_requires=[
-        'django >= 1.4',
+        'django >= 1.3.1',
         'python-keystoneclient'
     ],
     tests_require=[
