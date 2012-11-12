@@ -1,9 +1,70 @@
+import datetime
+
+import django
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import middleware
-from django.utils import timezone
-from django.utils.dateparse import parse_datetime
+from django.core import exceptions
+
+try:
+    import pytz
+except ImportError:
+    # Handle elsewhere
+    pytz = None
+
+def _now():
+    """
+    Returns an aware or naive datetime.datetime, depending on
+    settings.KEYSTONE_TIMEZONE. Adaptation from Django 1.4 util.
+    """
+    if settings.KEYSTONE_TIMEZONE:
+        # timeit shows that datetime.now(tz=utc) is 24% slower
+        zone = pytz.timezone(settings.KEYSTONE_TIMEZONE)
+        return datetime.datetime.now().replace(tzinfo=zone)
+    else:
+        return datetime.datetime.now()
+
+
+def _parse_datetime(value, fmt=None):
+    if not fmt:
+        fmt = settings.KEYSTONE_DATETIME_FMT
+    result = datetime.datetime.strptime(value, fmt)
+    if settings.KEYSTONE_TIMEZONE:
+        # timeit shows that datetime.now(tz=utc) is 24% slower
+        zone = pytz.timezone(settings.KEYSTONE_TIMEZONE)
+        return result.replace(tzinfo=zone)
+    return result
+
+
+def _check_compat(error=None):
+    messages = []
+    if error:
+        messages.append(error)
+    for setting in ('KEYSTONE_TIMEZONE', 'KEYSTONE_DATETIME_FMT'):
+        try:
+            getattr(settings, setting)
+        except AttributeError:
+            messages.append('You must define %s on your settings'
+                            % setting)
+    if messages:
+        raise exceptions.ImproperlyConfigured(
+            'In order to get Django 1.3 backwards compatibility you need:\n%s'
+            % '\n'.join(messages))
+
+
+if django.get_version() >= '1.4':
+    from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
+    NOW = timezone.now
+else:
+    # We are under Django < 1.4
+    error = 'pytz must be installed' if not pytz else False
+    _check_compat(error)
+    parse_datetime = _parse_datetime
+    # Djngo 1.3.1 doesn't define it
+    settings.USE_TZ = False
+    NOW = _now
 
 
 """
@@ -54,6 +115,11 @@ def check_token_expiration(token):
     # In case we get an unparseable expiration timestamp, return False
     # so you can't have a "forever" token just by breaking the expires param.
     if expiration:
-        return expiration > timezone.now()
+        return expiration > NOW()
     else:
         return False
+
+
+def mockdecorator():
+    '''Mocks decorators just returning decorated object.'''
+    return lambda func: func

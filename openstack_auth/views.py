@@ -6,7 +6,11 @@ from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.views import (login as django_login,
                                        logout_then_login as django_logout)
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.debug import sensitive_post_parameters
+try:
+    from django.views.decorators.debug import sensitive_post_parameters
+except ImportError:
+    from . import utils
+    sensitive_post_parameters = utils.mockdecorator
 from django.utils.functional import curry
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect

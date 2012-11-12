@@ -34,6 +34,21 @@ Installing is quick and easy:
 
 #. Use it as you would any other Django auth backend.
 
+Django 1.3.1 compatibility
+--------------------------
+
+In case you need Django 1.3.1+ then you need some extra steps:
+
+#. Install pytz
+
+#. Add to your settings::
+
+    KEYSTONE_TIMEZONE = None
+    KEYSTONE_DATETIME_FMT = '%Y-%m-%dT%H:%M:%S.%f'
+
+   Where the first setting is Keystone token's time zone (None in case they are,
+   time zone aware) and the latter is the format string for parsing the tokens.
+
 Running The Tests
 =================
 

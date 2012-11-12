@@ -3,7 +3,11 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.utils.translation import ugettext as _
-from django.views.decorators.debug import sensitive_variables
+try:
+    from django.views.decorators.debug import sensitive_variables
+except ImportError:
+    from . import utils
+    sensitive_variables = utils.mockdecorator
 
 from .exceptions import KeystoneAuthException
 

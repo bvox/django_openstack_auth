@@ -1,3 +1,6 @@
+import datetime
+
+import django
 from django import test
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -8,6 +11,7 @@ from keystoneclient.v2_0 import client
 import mox
 
 from .data import generate_test_data
+from openstack_auth import utils
 
 
 class OpenStackAuthTests(test.TestCase):
@@ -200,3 +204,54 @@ class OpenStackAuthTests(test.TestCase):
         self.assertRedirects(response, settings.LOGIN_REDIRECT_URL)
         self.assertEqual(self.client.session['tenant_id'],
                          scoped.tenant['id'])
+
+
+class DjangoCompatTets(test.TestCase):
+    def setUp(self):
+        setattr(utils, 'datetime', datetime)
+        self.mox = mox.Mox()
+
+    def tearDown(self):
+        self.mox.UnsetStubs()
+        self.mox.VerifyAll()
+
+    def test_version_check(self):
+        self.mox.StubOutWithMock(django, 'get_version')
+        django.get_version().AndReturn('1.3')
+        self.mox.ReplayAll()
+
+        utils_compat = reload(utils)
+
+        self.assertEqual(utils_compat.NOW, utils._now)
+        self.assertEqual(utils_compat.parse_datetime, utils._parse_datetime)
+
+    def test_parse_ok(self):
+        now = utils._now()
+        nowstr = datetime.datetime.strftime(now,
+                                            settings.KEYSTONE_DATETIME_FMT)
+
+        self.assertEqual(now, utils._parse_datetime(nowstr))
+
+    def test_parse_bad_formats(self):
+        now = utils._now()
+        nowstr = datetime.datetime.strftime(now,
+                                            settings.KEYSTONE_DATETIME_FMT)
+
+        with self.settings(KEYSTONE_DATETIME_FMT='%Y-%m-%dT%H:%M:%S'):
+            self.assertRaises(ValueError, utils._parse_datetime, nowstr)
+
+    def test_timezone_ok(self):
+        with self.settings(KEYSTONE_TIMEZONE='utc'):
+            now = utils._now()
+            fmt = '%Y-%m-%dT%H:%M:%S.%fZ%Z'
+            nowstr = datetime.datetime.strftime(now, fmt)
+            self.assertEqual(now, utils._parse_datetime(nowstr, fmt))
+
+    def test_timezone_error(self):
+        with self.settings(KEYSTONE_TIMEZONE='utc'):
+            now_aware = utils._now()
+
+        fmt = '%Y-%m-%dT%H:%M:%S.%f'
+        nowstr = datetime.datetime.strftime(now_aware, fmt)
+        now_naive = utils._parse_datetime(nowstr, fmt)
+        self.assertRaises(TypeError, lambda: now_aware > now_naive)
